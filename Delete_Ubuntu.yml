@@ -1,0 +1,17 @@
+---
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  tasks:
+
+  - name: "Delete Ubuntu host {{ ubuntu }}" 
+    vmware_guest:
+      hostname: 10.2.0.17
+      username: administrator@vsphere.local
+      password: mysecretpasswd
+      name: "{{ ubuntu }}"
+      state: absent
+      force: yes
+      validate_certs: no
+
+

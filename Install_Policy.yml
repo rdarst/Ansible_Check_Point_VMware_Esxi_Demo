@@ -1,0 +1,22 @@
+- hosts: "10.2.0.190"
+  connection: httpapi
+
+  tasks:
+    
+    - name: Install Access Policy to {{ hostname }} 
+      cp_mgmt_install_policy:
+        access: true 
+        threat_prevention: false
+        policy_package: Demo_Package
+        targets:
+          - "{{ hostname }}"
+
+    - name: Install Threat Policy to {{ hostname }}
+      cp_mgmt_install_policy:
+        access: false
+        threat_prevention: true
+        policy_package: Demo_Package
+        targets:
+          - "{{ hostname }}"
+
+

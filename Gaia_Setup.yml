@@ -1,0 +1,93 @@
+---
+- hosts: "{{ eth0_ipv4 }}"
+  gather_facts: no
+  connection: local
+  tasks:
+  
+    - name: Wait up to 600 seconds until instance is ready
+      wait_for:
+        host: "{{ eth0_ipv4 }}"
+        port: 22
+        delay: 5 
+        timeout: 600
+    - set_fact:
+        eth0_ip: '{{ eth0_ipv4 + "/" + eth0_mask }}'
+        eth1_ip: '{{ eth1_ipv4 + "/" + eth1_mask }}'
+
+    - set_fact:
+        eth0_network: "{{ eth0_ip | ipaddr('network') }}"
+        eth1_network: "{{ eth1_ip | ipaddr('network') }}"
+
+    - set_fact:
+        eth0_net: '{{ eth0_network + "/" + eth0_mask }}'
+
+    - set_fact:
+        defaultroute: "{{ eth0_net | ipaddr('net') | ipaddr('1') }}"
+
+    - set_fact:
+        eth1_dhcp_start: "{{ ((eth1_ipv4 | ipaddr('int')) + 49) | ipaddr }}"
+        eth1_dhcp_end: "{{ ((eth1_ipv4 | ipaddr('int')) + 99) | ipaddr }}"
+        defaultaddress: "{{ defaultroute | ipaddr('address') }}"
+
+    - name: "Configure DNS and NTP Settings on Gateway"
+      command: "{{ item }}"
+      with_items:
+        - clish -c 'set dns primary 8.8.8.8' -s
+        - clish -c 'set dns secondary 8.8.4.4' -s
+        - clish -c 'set ntp server primary 0.pool.ntp.org version 4' -s
+        - clish -c 'set ntp server secondary 1.pool.ntp.org version 4' -s
+        - clish -c 'set ntp active on' -s
+
+    - name: "Configure Static Routes and interfaces on Gateway"
+      command: "{{ item }}"
+      with_items:
+        - clish -c 'set interface eth1 ipv4-address {{ eth1_ipv4 }} mask-length {{ eth1_mask }}' -s
+        - clish -c 'set interface eth1 state on' -s
+        - clish -c 'set static-route default nexthop gateway address {{ defaultaddress }} on' -s
+
+    - name: "Configure DHCP Settings on Gateway"
+      raw: "{{ item }}"
+      with_items:
+        - echo 'add dhcp server subnet {{ eth1_network }} netmask {{ eth1_mask }}' > dhcp_setup
+        - echo 'set dhcp server subnet {{ eth1_network }} enable' >> dhcp_setup
+        - echo 'set dhcp server subnet {{ eth1_network }} default-lease 43200' >> dhcp_setup
+        - echo 'set dhcp server subnet {{ eth1_network }} max-lease 86400' >> dhcp_setup
+        - echo 'set dhcp server subnet {{ eth1_network }} dns "8.8.8.8, 9.9.9.9"' >> dhcp_setup
+        - echo 'set dhcp server subnet {{ eth1_network }} default-gateway {{ eth1_ipv4 }}' >> dhcp_setup
+        - echo 'add dhcp server subnet {{ eth1_network }} include-ip-pool start {{ eth1_dhcp_start }} end {{ eth1_dhcp_end }}' >> dhcp_setup
+        - echo 'set dhcp server subnet {{ eth1_network }} enable' >> dhcp_setup
+        - echo 'set dhcp server enable' >> dhcp_setup
+        - clish -i -f  dhcp_setup 
+        - rm dhcp_setup
+
+    - name: Check if gateway is already setupi
+      stat:
+        path: /etc/.wizard_accepted
+      register: ftw
+   
+    - name: Setup the Gateway if needed 
+      block:
+      - name: "Create config_system on the gateway"
+        raw: echo "config_system --config-string \"hostname={{ hostname }}&ftw_sic_key=vpn123&timezone='America/New_York'&install_security_managment=false&install_mgmt_primary=false&install_security_gw=true&gateway_daip=false&install_ppak=true&gateway_cluster_member=false&download_info=true\" >> ftw.output & " > /home/admin/ftwstart
+
+      - name: "Change permissions"
+        raw: chmod 755 ftwstart
+
+      - name: "Run the FTW Setup"
+        command: "/bin/bash /home/admin/ftwstart"
+
+      - name: Wait until the FTW completes
+        wait_for:
+          path: /etc/.wizard_accepted
+          state: present
+          delay: 10
+
+      - name: Waiting for 10 seconds before reboot
+        pause:
+          seconds: 10 
+
+      - name: Rebooting
+        command: "shutdown -r now"
+
+      when: ftw.stat.path is not defined
+

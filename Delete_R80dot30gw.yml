@@ -1,0 +1,48 @@
+---
+- hosts: "localhost"
+  gather_facts: no
+
+  tasks:
+
+  - name: "login"
+    check_point_mgmt:
+      command: login
+      parameters:
+        username: "{{mgmt_user}}"
+        password: "{{mgmt_password}}"
+        management: "{{mgmt_server}}"
+      fingerprint: "{{mgmt_fingerprint}}"
+    register: login_response
+
+  - name: "Check for Gateway"
+    check_point_mgmt:
+      command: show-objects
+      parameters:
+        order:
+        - ASC: name
+        in:
+        - name
+        - "{{ hostname }}"
+        type: object
+      session-data: "{{login_response}}"
+    register: gw_check
+
+  - name: Check for gateway and delete if it does
+    block:
+    - name: "Delete SimpleGateway {{hostname}} at {{eth0_ipv4}}"
+      check_point_mgmt:
+        command: delete-simple-gateway 
+        parameters:
+          name: "{{hostname}}"
+        session-data: "{{login_response}}"        
+    - name: "publish"
+      check_point_mgmt:
+        command: publish
+        session-data: "{{login_response}}"
+
+    when:  gw_check.response.total != 0
+
+  - name: "logout"
+    check_point_mgmt:
+      command: logout
+      session-data: "{{login_response}}"

@@ -1,0 +1,10 @@
+---
+
+- name: Ansible Demo Destroy 
+  gather_facts: no
+  hosts: localhost
+
+- import_playbook: Delete_R80dot30gw.yml  
+- import_playbook: Delete_Gateway.yml 
+- import_playbook: Delete_Rulebase.yml  
+- import_playbook: Delete_Ubuntu.yml  

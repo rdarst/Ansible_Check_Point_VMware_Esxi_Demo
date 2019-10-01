@@ -1,0 +1,2 @@
+ ansible-playbook Create_Demo.yml --extra-vars "hostname=TestGateway eth0_ipv4=10.2.0.194 eth0_mask=24 eth1_ipv4=192.168.100.1 eth1_mask=24 ubuntu=ubuntu1"
+

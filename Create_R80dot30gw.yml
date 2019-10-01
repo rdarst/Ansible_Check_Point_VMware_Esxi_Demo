@@ -1,0 +1,78 @@
+---
+- hosts: "localhost"
+  gather_facts: no
+
+  tasks:
+
+  - name: "login"
+    check_point_mgmt:
+      command: login
+      parameters:
+        username: "{{mgmt_user}}"
+        password: "{{mgmt_password}}"
+        management: "{{mgmt_server}}"
+      fingerprint: "{{mgmt_fingerprint}}"
+    register: login_response
+
+  - name: "Check for Gateway"
+    check_point_mgmt:
+      command: show-objects
+      parameters:
+        order:
+        - ASC: name
+        in:
+        - name
+        - "{{ hostname }}"
+        type: object
+      session-data: "{{login_response}}"
+    register: gw_check
+
+  - name: Check for gateway and create if it does not exist
+    block:
+    - name: Wait up to 300 seconds for SIC port 18211 to Open
+      wait_for:
+        port: 18211
+        host: "{{ eth0_ipv4 }}"
+        delay: 10
+      connection: local
+    - name: "Create SimpleGateway {{hostname}} at {{eth0_ipv4}}"
+      check_point_mgmt:
+        command: add-simple-gateway 
+        parameters:
+          name: "{{hostname}}"
+          ipv4-address: "{{eth0_ipv4}}" 
+          color: blue
+          firewall: "true"
+          version: "R80.30"
+          ips: "true"
+          vpn: "true"
+          one-time-password: "vpn123"
+          interfaces:
+          -  name: eth0
+             ipv4-address: "{{eth0_ipv4}}" 
+             ipv4-mask-length: "{{ eth0_mask }}" 
+             topology: External
+             anti-spoofing: "true"
+          -  name: eth1
+             ipv4-address: "{{ eth1_ipv4 }}" 
+             ipv4-mask-length: "{{ eth1_mask }}"
+             topology: Internal
+             anti-spoofing: "true"
+             security-zone: true
+             security-zone-settings:
+               specific-zone: "InsideZone"
+             topology-settings:
+               ip-address-behind-this-interface: "network defined by the interface ip and net mask"
+        session-data: "{{login_response}}"        
+  
+    - name: "publish"
+      check_point_mgmt:
+        command: publish
+        session-data: "{{login_response}}"
+
+    when:  gw_check.response.total  == 0
+
+  - name: "logout"
+    check_point_mgmt:
+      command: logout
+      session-data: "{{login_response}}"

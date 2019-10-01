@@ -1,0 +1,1 @@
+ansible-playbook Delete_Demo.yml  --extra-vars "hostname=TestGateway eth0_ipv4=10.2.0.194 eth0_mask=24 ubuntu=ubuntu1" 

@@ -1,0 +1,12 @@
+---
+
+- name: Ansible Demo Setup
+  gather_facts: no
+  hosts: localhost
+
+- import_playbook: Create_Gateway.yml
+- import_playbook: Gaia_Setup.yml
+- import_playbook: Create_Rulebase.yml  
+- import_playbook: Create_R80dot30gw.yml 
+- import_playbook: Install_Policy.yml 
+- import_playbook: Create_Ubuntu.yml 

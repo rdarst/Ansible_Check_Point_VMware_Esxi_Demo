@@ -1,0 +1,47 @@
+- hosts: "10.2.0.190"
+  connection: httpapi
+
+  tasks:
+    
+    - name: Delete new Policy Package
+      cp_mgmt_package:
+        access: true
+        threat_prevention: true
+        color: pink
+        name: Demo_Package
+        state: absent
+
+    - name:  Delete web server for sales
+      cp_mgmt_host:
+        name: "Sales Web Server"
+        ip_address: 10.0.0.131
+        state: absent
+
+    - name:  Delete web server for development 
+      cp_mgmt_host:
+        name: "Dev Web Server"
+        ip_address: 10.0.0.132
+        state: absent
+
+    - name:  Delete Internal Network 
+      cp_mgmt_network:
+        name: "Internal_Network"
+        state: absent
+
+    - name:  Delete Jump Network
+      cp_mgmt_network:
+        name: "Jump_Network"
+        state: absent
+
+    - name: Delete Security Zone 
+      cp_mgmt_security_zone:
+        name: InsideZone 
+        state: absent 
+
+    - name: publish
+      cp_mgmt_publish:
+      register: publish_response
+  
+    - debug:
+        var: publish_response
+        

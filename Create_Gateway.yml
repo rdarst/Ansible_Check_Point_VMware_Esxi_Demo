@@ -1,0 +1,66 @@
+---
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  tasks:
+
+  - name: Create R80.30 Gateway from template
+    vmware_guest:
+      hostname: 10.2.0.17
+      username: administrator@vsphere.local
+      password: mysecretpasswd
+      name: "{{ hostname }}"
+      folder: /
+      datacenter: Home
+      validate_certs: no
+      template: R80dot30_2.6_GW
+      esxi_hostname: 10.2.0.40
+      state: poweredon
+      disk:
+      - size_gb: 80
+        type: thin
+        datastore: Samsung_970Pro_1TB_1
+      networks:
+      - name: VM Network
+        start_connected: true
+      - name: Hades_Canyon_DMZ1
+        start_connected: true
+      wait_for_ip_address: yes
+    delegate_to: localhost
+    register: newvm
+
+  - debug: msg="New Gateway is available at {{ newvm.instance.ipv4 }}"
+
+  - add_host:
+      name: "{{  newvm.instance.ipv4 }}"
+      group: new_firewalls
+
+- hosts: new_firewalls
+  gather_facts: no
+  connection: local
+  tasks:
+        - name: Setup Eth0 if needed
+          block:
+            - name: "Create config for eth0"
+              raw: "{{ item }}" 
+              with_items:
+                -  echo "sleep 2;clish -c 'delete dhcp client interface eth0' -s;clish -c 'set interface eth0 ipv4-address {{ eth0_ipv4 }} mask-length {{ eth0_mask }}' -s; " > /home/admin/SetEth0
+                -  chmod 755 /home/admin/SetEth0
+
+            - name: "Run the eth0 change"
+              shell: "nohup /bin/bash /home/admin/SetEth0 &"
+              poll: 0
+
+          when: inventory_hostname != eth0_ipv4
+
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  tasks:
+      - name: Wait up to 600 seconds until instance is ready
+        wait_for:
+            host: "{{ eth0_ipv4 }}"
+            port: 22
+            delay: 2 
+            timeout: 600
+

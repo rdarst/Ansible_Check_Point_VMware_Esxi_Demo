@@ -1,0 +1,32 @@
+---
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  tasks:
+
+  - name: Create Ubuntu Host from template
+    vmware_guest:
+      hostname: 10.2.0.17
+      username: administrator@vsphere.local
+      password: mysecretpasswd
+      name: "{{ ubuntu }}"
+      folder: /
+      datacenter: Home
+      validate_certs: no
+      template: Ubuntu-18.04_Template 
+      esxi_hostname: 10.2.0.40
+      state: poweredon
+      disk:
+      - size_gb: 20
+        type: thin
+        datastore: Samsung_970Pro_1TB_2
+      networks:
+      - name: Hades_Canyon_DMZ1
+        start_connected: true
+      wait_for_ip_address: yes
+    delegate_to: localhost
+    register: newvmubuntu
+
+  - debug: msg="New Ubuntu is available at {{ newvmubuntu.instance.ipv4 }}"
+
+
